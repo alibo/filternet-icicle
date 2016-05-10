@@ -1,0 +1,15 @@
+{
+    "require": {
+        "icicleio/icicle": "2.0.x-dev",
+        "icicleio/socket": "2.0.x-dev",
+        "icicleio/dns": "2.0.x-dev",
+        "icicleio/http": "2.0.x-dev",
+        "icicleio/filesystem": "2.0.x-dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "Filternet\\Icicle\\": "src/"
+        }
+    },
+    "minimum-stability": "dev"
+}
