@@ -3,7 +3,7 @@ namespace Filternet\Icicle\Results;
 
 use Filternet\Icicle\Site;
 
-class Http implements \JsonSerializable
+class Http implements \JsonSerializable, Result
 {
     /**
      * @var Site
@@ -23,7 +23,17 @@ class Http implements \JsonSerializable
     /**
      * @var int
      */
-    private $statusCode;
+    private $statusCode = -1;
+
+    /**
+     * @var float
+     */
+    private $elapsedTime;
+
+    /**
+     * @var bool
+     */
+    private $unknown = false;
 
     /**
      * Http constructor.
@@ -67,7 +77,9 @@ class Http implements \JsonSerializable
      */
     public function getHeaders(): array
     {
-        return $this->headers;
+        return is_array($this->headers)
+            ? $this->headers
+            : [];
     }
 
     /**
@@ -85,7 +97,9 @@ class Http implements \JsonSerializable
      */
     public function getBody(): string
     {
-        return $this->body;
+        return is_string($this->body)
+            ? $this->body
+            : '';
     }
 
     /**
@@ -115,7 +129,38 @@ class Http implements \JsonSerializable
             return trim($matches[1]);
         }
 
-        return null;
+        return "";
+    }
+
+    /**
+     * @return float
+     */
+    public function getElapsedTime(): float
+    {
+        return $this->elapsedTime;
+    }
+
+    /**
+     * @param float $elapsedTime
+     */
+    public function setElapsedTime(float $elapsedTime)
+    {
+        $this->elapsedTime = $elapsedTime;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isUnknown()
+    {
+        return $this->unknown;
+    }
+
+    /**
+     */
+    public function setUnknown()
+    {
+        $this->unknown = true;
     }
 
     /**
@@ -133,13 +178,17 @@ class Http implements \JsonSerializable
     public function toArray(): array
     {
         return [
-            'status' => $this->isBlocked() ? 'blocked' : 'open',
+            'domain' => $this->site->domain(),
+            'rank' => $this->site->rank(),
+            'status' => $this->unknown ? 'unknown' : ($this->isBlocked() ? 'blocked' : 'open'),
             'title' => $this->getTitle(),
+            'elapsedTime' => $this->elapsedTime,
             'http' => [
                 'status' => $this->getStatusCode(),
-                'headers' => (array)$this->getHeaders(),
-                'body' => (string)$this->getBody()
+                'headers' => $this->getHeaders(),
+                'body' => $this->getBody()
             ]
         ];
     }
+
 }

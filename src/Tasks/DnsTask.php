@@ -1,7 +1,9 @@
 <?php
 namespace Filternet\Icicle\Tasks;
 
+use Exception;
 use Filternet\Icicle\Site;
+use Filternet\Icicle\Tasks\BaseTask;
 use Icicle\Concurrent\Worker\Environment;
 use Icicle\Concurrent\Worker\Task;
 use Filternet\Icicle\Results\Dns as DnsResult;
@@ -10,7 +12,7 @@ use Icicle\Dns;
 use Icicle\Dns\Executor\BasicExecutor;
 use Icicle\Dns\Executor\MultiExecutor;
 
-class DnsTask implements Task
+class DnsTask extends BaseTask implements Task
 {
     /**
      * @var Site
@@ -28,7 +30,7 @@ class DnsTask implements Task
      * @param Site $site
      * @param array $servers
      */
-    public function __construct(Site $site, array $servers = ['8.8.8.8', '4.2.2.4'])
+    public function __construct(Site $site, array $servers = ['8.8.8.8', '4.2.2.4', '8.8.4.4'])
     {
         $this->site = $site;
         $this->servers = $servers;
@@ -53,13 +55,32 @@ class DnsTask implements Task
         $this->setupExecutors();
 
         return Coroutine\create(function () {
+            $this->startWatch();
 
-            $ips = yield from Dns\resolve($this->site->domain());
+            try {
+                $ips = yield from Dns\resolve($this->site->domain());
 
-            $result = new DnsResult($this->site);
-            $result->setIps($ips);
+                if (empty($ips)) {
+                    throw new Exception("cannot resolve domain");
+                }
 
-            return $result;
+                $result = new DnsResult($this->site);
+                $result->setIps($ips);
+                $result->setElapsedTime($this->elapsedTime());
+                
+                $this->logger()->logDns($result);
+
+                return $result;
+            } catch (Exception $e) {
+                $result = new DnsResult($this->site);
+                $result->setUnknown();
+                $result->setElapsedTime($this->elapsedTime());
+                
+                $this->logger()->logDns($result);
+                
+                return $result;
+            }
+
         });
     }
 

@@ -3,7 +3,7 @@ namespace Filternet\Icicle\Results;
 
 use Filternet\Icicle\Site;
 
-class Dns implements \JsonSerializable
+class Dns implements \JsonSerializable, Result
 {
     /**
      * @var Site
@@ -13,7 +13,17 @@ class Dns implements \JsonSerializable
     /**
      * @var array
      */
-    private $ips;
+    private $ips = [];
+
+    /**
+     * @var float
+     */
+    private $elapsedTime;
+
+    /**
+     * @var bool
+     */
+    private $unknown = false;
 
     /**
      * Dns constructor.
@@ -45,7 +55,9 @@ class Dns implements \JsonSerializable
      */
     public function getIps(): array
     {
-        return $this->ips;
+        return is_array($this->ips)
+            ? $this->ips
+            : [];
     }
 
     public function getIp()
@@ -66,6 +78,37 @@ class Dns implements \JsonSerializable
     }
 
     /**
+     * @return float
+     */
+    public function getElapsedTime(): float
+    {
+        return $this->elapsedTime;
+    }
+
+    /**
+     * @param float $elapsedTime
+     */
+    public function setElapsedTime(float $elapsedTime)
+    {
+        $this->elapsedTime = $elapsedTime;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isUnknown()
+    {
+        return $this->unknown;
+    }
+
+    /**
+     */
+    public function setUnknown()
+    {
+        $this->unknown = true;
+    }
+
+    /**
      * Specify data which should be serialized to JSON
      * @link http://php.net/manual/en/jsonserializable.jsonserialize.php
      * @return mixed data which can be serialized by <b>json_encode</b>,
@@ -80,8 +123,11 @@ class Dns implements \JsonSerializable
     public function toArray(): array
     {
         return [
-            'status' => $this->isBlocked() ? 'blocked' : 'open',
-            'ips' => (array)$this->getIps()
+            'domain' => $this->site->domain(),
+            'rank' => $this->site->rank(),
+            'status' => $this->unknown ? 'unknown' : ($this->isBlocked() ? 'blocked' : 'open'),
+            'elapsedTime' => $this->elapsedTime,
+            'ips' => $this->getIps()
         ];
     }
 }

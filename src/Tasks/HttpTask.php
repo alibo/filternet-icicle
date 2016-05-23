@@ -1,7 +1,9 @@
 <?php
 namespace Filternet\Icicle\Tasks;
 
+use Exception;
 use Filternet\Icicle\Site;
+use Filternet\Icicle\Tasks\BaseTask;
 use Icicle\Concurrent\Worker\Environment;
 use Icicle\Concurrent\Worker\Task;
 use Icicle\Dns;
@@ -9,8 +11,9 @@ use Icicle\Http\Driver\Reader\Http1Reader;
 use Icicle\Http\Message\BasicResponse;
 use Icicle\Coroutine;
 use Filternet\Icicle\Results\Http as HttpResult;
+use Icicle\Socket\Socket;
 
-class HttpTask implements Task
+class HttpTask extends BaseTask implements Task
 {
     /**
      * @var Site
@@ -18,12 +21,19 @@ class HttpTask implements Task
     private $site;
 
     /**
+     * @var int
+     */
+    private $timeout;
+
+    /**
      * HttpTask constructor.
      * @param Site $site
+     * @param $timeout
      */
-    public function __construct(Site $site)
+    public function __construct(Site $site, int $timeout = 10)
     {
         $this->site = $site;
+        $this->timeout = $timeout;
     }
 
 
@@ -43,11 +53,30 @@ class HttpTask implements Task
     public function run(Environment $environment)
     {
         return Coroutine\create(function () {
-            $socket = yield from $this->connect();
+            $this->startWatch();
+            while ($this->canRetry()) {
+                try {
+                    /** @var Socket $socket */
+                    $socket = yield from $this->connect();
 
-            yield from $socket->write($this->createHttpRequest());
+                    yield from $socket->write($this->createHttpRequest(), $this->timeout);
 
-            return yield from $this->result($socket);
+                    $result = yield from $this->result($socket);
+                    $this->logger()->logHttp($result);
+                    return $result;
+
+                } catch (Exception $e) {
+                    yield from $this->retry();
+                    $this->timeout += 5;
+                }
+            }
+
+            $result = new HttpResult($this->site);
+            $result->setUnknown();
+            $result->setElapsedTime($this->elapsedTime());
+
+            $this->logger()->logHttp($result);
+            return $result;
         });
     }
 
@@ -56,7 +85,9 @@ class HttpTask implements Task
      */
     protected function connect(): \Generator
     {
-        return yield from Dns\connect($this->site->domain(), 80);
+        return yield from Dns\connect($this->site->domain(), 80, [
+            'timeout' => $this->timeout
+        ]);
     }
 
     /**
@@ -80,7 +111,7 @@ class HttpTask implements Task
      */
     protected function parseResponse($socket): \Generator
     {
-        return yield from (new Http1Reader())->readResponse($socket);
+        return yield from (new Http1Reader())->readResponse($socket, $this->timeout);
     }
 
     /**
@@ -99,9 +130,10 @@ class HttpTask implements Task
         $body = $response->getBody();
 
         if ($body->isReadable()) {
-            $result->setBody(yield from $body->read(196));
+            $result->setBody(yield from $body->read(196, null, $this->timeout));
         }
 
+        $result->setElapsedTime($this->elapsedTime());
         return $result;
     }
 }

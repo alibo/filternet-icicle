@@ -3,7 +3,7 @@ namespace Filternet\Icicle\Results;
 
 use Filternet\Icicle\Site;
 
-class Sni implements \JsonSerializable
+class Sni implements \JsonSerializable, Result
 {
     /**
      * @var Site
@@ -14,6 +14,16 @@ class Sni implements \JsonSerializable
      * @var string|null
      */
     private $error;
+
+    /**
+     * @var float
+     */
+    private $elapsedTime;
+
+    /**
+     * @var bool
+     */
+    private $unknown = false;
 
     /**
      * Sni constructor.
@@ -62,7 +72,43 @@ class Sni implements \JsonSerializable
 
     public function hasSslError()
     {
-        return preg_match('/ssl/ism', $this->error) && !preg_match('/timed out/ism', $this->error);
+        return preg_match('/ssl/ism', $this->error) && !$this->isTimeoutError($this->error);
+    }
+
+    public function isTimeoutError($error)
+    {
+        return preg_match('/timed out/ism', $error);
+    }
+
+    /**
+     * @return float
+     */
+    public function getElapsedTime(): float
+    {
+        return $this->elapsedTime;
+    }
+
+    /**
+     * @param float $elapsedTime
+     */
+    public function setElapsedTime(float $elapsedTime)
+    {
+        $this->elapsedTime = $elapsedTime;
+    }
+
+    /**
+     * @return boolean
+     */
+    public function isUnknown()
+    {
+        return $this->unknown;
+    }
+
+    /**
+     */
+    public function setUnknown()
+    {
+        $this->unknown = true;
     }
 
     /**
@@ -80,7 +126,10 @@ class Sni implements \JsonSerializable
     public function toArray(): array
     {
         return [
-            'status' => $this->isBlocked() ? 'blocked' : 'open',
+            'domain' => $this->site->domain(),
+            'rank' => $this->site->rank(),
+            'status' => $this->unknown ? 'unknown' : ($this->isBlocked() ? 'blocked' : 'open'),
+            'elapsedTime' => $this->elapsedTime,
             'error' => (string)$this->getError()
         ];
     }
