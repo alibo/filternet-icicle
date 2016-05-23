@@ -31,6 +31,14 @@ $sites = $csv->setLimit($limit)->fetchAll();
 
 $climate = new CLImate;
 
+DnsTask::setupDnsServers([
+    '8.8.8.8', // Google
+    '208.67.222.222', // OpenDNS
+    '4.2.2.4', // Level 3
+    '193.183.98.154', // OpenNIC
+    '8.8.4.4', // Google
+]);
+
 Coroutine\create(function () use ($sites, $climate) {
     $pool = new DefaultPool(min(count($sites), 10), 40, new class implements WorkerFactory
     {

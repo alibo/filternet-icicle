@@ -18,24 +18,15 @@ class DnsTask extends BaseTask implements Task
      * @var Site
      */
     private $site;
-    /**
-     * DNS servers
-     *
-     * @var array
-     */
-    private $servers;
 
     /**
      * DnsTask constructor.
      * @param Site $site
-     * @param array $servers
      */
-    public function __construct(Site $site, array $servers = ['8.8.8.8', '4.2.2.4', '8.8.4.4'])
+    public function __construct(Site $site)
     {
         $this->site = $site;
-        $this->servers = $servers;
     }
-
 
     /**
      * @coroutine
@@ -52,8 +43,6 @@ class DnsTask extends BaseTask implements Task
      */
     public function run(Environment $environment)
     {
-        $this->setupExecutors();
-
         return Coroutine\create(function () {
             $this->startWatch();
 
@@ -67,7 +56,7 @@ class DnsTask extends BaseTask implements Task
                 $result = new DnsResult($this->site);
                 $result->setIps($ips);
                 $result->setElapsedTime($this->elapsedTime());
-                
+
                 $this->logger()->logDns($result);
 
                 return $result;
@@ -75,20 +64,20 @@ class DnsTask extends BaseTask implements Task
                 $result = new DnsResult($this->site);
                 $result->setUnknown();
                 $result->setElapsedTime($this->elapsedTime());
-                
+
                 $this->logger()->logDns($result);
-                
+
                 return $result;
             }
 
         });
     }
 
-    private function setupExecutors()
+    public static function setupDnsServers($servers)
     {
         $executor = new MultiExecutor();
 
-        foreach ($this->servers as $server) {
+        foreach ($servers as $server) {
             $executor->add(new BasicExecutor($server));
         }
 
